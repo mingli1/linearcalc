@@ -39,7 +39,7 @@ def read_matrix(matrix_name = "A"):
 
 """
 Syntax for inputting vectors:
-(a, b, c) (d, e, f) ... (separated by a space)
+(a,b,c) (d,e,f) ... (separated by a space)
 """
 def read_vectors():
     print("Vectors:")
@@ -129,31 +129,49 @@ def mult_matrices():
     pprint(p)
     print()
 
-def gram_schmidt(vecs=None):
+def gram_schmidt(vecs=None, short=False):
     if vecs is None:
         vectors = read_vectors()
     else:
         vectors = vecs
-    print("\nOrthogonalization:")
+    print(f"\n{'Orthonormaliztion (normalize u_i to get vectors)' if short else 'Orthogonalization'}:")
 
     ovectors = []
-    for i in range(len(vectors)):
-        calc = f"v_{i+1} = {v2s(vectors[i])}"
-        v = vectors[i]
-        for j in range(i):
-            calc += f" - ({v2s(vectors[i])} o {v2s(ovectors[j])})/({v2s(ovectors[j])} o {v2s(ovectors[j])})*{v2s(ovectors[j])}"
-            v -= ((vectors[i].dot(ovectors[j])) / (ovectors[j].dot(ovectors[j]))) * ovectors[j]
-        ovectors.append(v)
-        print(calc)
+    if short:
+        for i in range(len(vectors)):
+            calc = f"u_{i + 1} = {v2s(vectors[i])}"
+            u = vectors[i]
+            for j in range(i):
+                calc += f" - ({v2s(vectors[i])} o {v2s(ovectors[j])})*{v2s(ovectors[j])}"
+                u -= (vectors[i].dot(ovectors[j])) * ovectors[j]
 
-    print("\nOrthogonal vectors:")
-    pprint(ovectors)
+            print(calc + " = " + v2s(u))
+            n = u.normalized()
+            ovectors.append(n)
 
-    print("\nNormalize vectors:")
-    nor = list(map(lambda vec: vec.normalized(), ovectors))
-    pprint(nor)
-    print()
-    return nor
+        print("\nOrthonormal vectors:")
+        pprint(ovectors)
+        print()
+        return ovectors
+    else:
+        for i in range(len(vectors)):
+            calc = f"v_{i+1} = {v2s(vectors[i])}"
+            v = vectors[i]
+            for j in range(i):
+                calc += f" - ({v2s(vectors[i])} o {v2s(ovectors[j])})/({v2s(ovectors[j])} o {v2s(ovectors[j])})*{v2s(ovectors[j])}"
+                v -= ((vectors[i].dot(ovectors[j])) / (ovectors[j].dot(ovectors[j]))) * ovectors[j]
+            ovectors.append(v)
+            print(calc)
+
+        print("\nOrthogonal vectors:")
+        pprint(ovectors)
+
+        print("\nNormalize vectors:")
+        nor = list(map(lambda vec: vec.normalized(), ovectors))
+        pprint(nor)
+
+        print()
+        return nor
 
 def qr_fact():
     vectors = read_vectors()
@@ -209,6 +227,11 @@ def least_squares():
     A = Matrix(ma)
     b = Matrix(ma2)
 
+    if sc is not None:
+        A *= sc
+    if sc2 is not None:
+        b *= sc2
+
     ATA = A.T * A
     print("\nATA =")
     pprint(ATA)
@@ -223,6 +246,63 @@ def least_squares():
 
     print()
 
+def svd():
+    sc, ma = read_matrix()
+
+    A = Matrix(ma)
+    if sc is not None:
+        A *= sc
+
+    ATA = A.T * A
+    print("\nATA =")
+    pprint(ATA)
+
+    eigenvals = list(ATA.eigenvals().keys())
+    print("\nEigenvalues:")
+    pprint(eigenvals)
+
+    singvals = list(map(lambda v: sqrt(v), eigenvals))
+    print("\nSingular values:")
+    pprint(singvals)
+
+    def gen_sigma(i, j):
+        if i == j:
+            return singvals[i]
+        return 0
+    sigma = Matrix(A.shape[0], A.shape[1], gen_sigma)
+
+    uvects = []
+    for ev in ATA.eigenvects():
+        vects = ev[2]
+        nvects = gram_schmidt(vecs=vects, short=True)
+        uvects += nvects
+    uvects.reverse()
+
+    print("\nU = ")
+    for i in range(A.shape[0]):
+        u = (A * uvects[i]) / singvals[i]
+        print(f"u_{i+1} = Av_{i+1} / rho_{i+1} = ")
+        pprint(u)
+
+    print("\nSIGMA =")
+    pprint(sigma)
+
+    print("\nV = ")
+    pprint(uvects)
+
+    print()
+
+
+def aat():
+    sc, ma = read_matrix()
+    A = Matrix(ma)
+    if sc is not None:
+        A *= sc
+
+    AAT = A * A.T
+    print("\nAAT =")
+    pprint(AAT)
+    print()
 
 def v2s(v):
     s = "("
@@ -235,10 +315,12 @@ def v2s(v):
 def main():
     while True:
         print("1. Matrix All Info (det and inverse (11), rref (12), ker and im (13), eigenvalues/vectors (14))")
-        print("2. Multiply n matrices")
-        print("3. Gram-Schmidt")
+        print("2. Multiply n matrices (21) for A*AT")
+        print("3. Gram-Schmidt (31) for orthonormal only")
         print("4. QR Factorization")
         print("5. Least Squares")
+        print("6. SVD")
+
         s = input()
         c = int(s)
 
@@ -252,14 +334,22 @@ def main():
                     show_ker = s[1] == "3",
                     show_eigen = s[1] == "4"
                 )
-        elif c == 2:
-            mult_matrices()
-        elif c == 3:
-            gram_schmidt()
+        elif s.startswith("2"):
+            if len(s) == 1:
+                mult_matrices()
+            else:
+                aat()
+        elif s.startswith("3"):
+            if len(s) == 1:
+                gram_schmidt()
+            else:
+                gram_schmidt(short=True)
         elif c == 4:
             qr_fact()
         elif c == 5:
             least_squares()
+        elif c == 6:
+            svd()
 
 
 if __name__ == "__main__":
